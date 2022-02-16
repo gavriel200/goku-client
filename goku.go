@@ -17,6 +17,8 @@ const (
 	SENDER
 )
 
+const ping byte = 0xFF
+
 type client struct {
 	queueName   []byte
 	queueLength uint8
@@ -28,6 +30,7 @@ type Consumer struct {
 
 type Sender struct {
 	client
+	conn net.Conn
 }
 
 func NewConsumer(queueNameString string) (*Consumer, error) {
@@ -60,6 +63,9 @@ func (c *Consumer) Listen(ch chan []byte) {
 			fmt.Println(err, "connection closed")
 			break
 		}
+		if data[0] == ping {
+			continue
+		}
 		ch <- data
 	}
 }
@@ -71,17 +77,16 @@ func NewSender(queueNameString string) (*Sender, error) {
 		return nil, errors.New("queue name cant be longer then 255 characters")
 	}
 	queueLength := uint8(queueLengthInt)
-	return &Sender{client{queueName, queueLength}}, nil
-}
-
-func (c *Sender) Send(data []byte) {
 	conn, err := net.Dial("tcp", ":8888")
 	if err != nil {
-		fmt.Println(err)
-		return
+		return nil, errors.New("err")
 	}
-	connectionData := []byte{SENDER, c.client.queueLength}
-	connectionData = append(connectionData, c.client.queueName...)
+	connectionData := []byte{SENDER, queueLength}
+	connectionData = append(connectionData, queueName...)
 	conn.Write(connectionData)
-	conn.Write(data)
+	return &Sender{client{queueName, queueLength}, conn}, nil
+}
+
+func (s *Sender) Send(data []byte) {
+	s.conn.Write(data)
 }
