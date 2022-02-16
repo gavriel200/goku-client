@@ -46,13 +46,20 @@ func (c *Consumer) Listen(ch chan []byte) {
 		fmt.Println(err)
 		return
 	}
+	defer conn.Close()
+	defer close(ch)
+
 	connectionData := []byte{CONSUMER, c.client.queueLength}
 	connectionData = append(connectionData, c.client.queueName...)
 	conn.Write(connectionData)
 
 	for {
 		data := make([]byte, 1)
-		conn.Read(data)
+		_, err := conn.Read(data)
+		if err != nil {
+			fmt.Println(err, "connection closed")
+			break
+		}
 		ch <- data
 	}
 }
@@ -73,7 +80,7 @@ func (c *Sender) Send(data []byte) {
 		fmt.Println(err)
 		return
 	}
-	connectionData := []byte{CONSUMER, c.client.queueLength}
+	connectionData := []byte{SENDER, c.client.queueLength}
 	connectionData = append(connectionData, c.client.queueName...)
 	conn.Write(connectionData)
 	conn.Write(data)
